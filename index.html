@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mathematics Problem Solver</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+<style>
+:root{
+  --bg:#0f172a;
+  --card:#1e293b;
+  --text:#e5e7eb;
+  --accent:#38bdf8;
+}
+.light{
+  --bg:#f8fafc;
+  --card:#ffffff;
+  --text:#0f172a;
+  --accent:#2563eb;
+}
+*{box-sizing:border-box;font-family:Segoe UI,sans-serif}
+body{
+  margin:0;background:var(--bg);color:var(--text);transition:.3s
+}
+header{
+  position:relative;text-align:center;
+  padding:20px 15px 25px;
+  background:linear-gradient(135deg,var(--accent),#9333ea);
+  color:white;
+}
+.header-actions{
+  position:absolute;top:12px;right:12px;
+  display:flex;gap:8px
+}
+.header-actions button{
+  padding:6px 10px;font-size:14px;
+  border-radius:6px;background:rgba(255,255,255,.25);
+  color:white;border:none;cursor:pointer
+}
+.container{
+  max-width:1200px;margin:auto;padding:20px;
+  display:grid;gap:20px
+}
+.card{
+  background:var(--card);padding:20px;
+  border-radius:15px;
+  box-shadow:0 10px 25px rgba(0,0,0,.25)
+}
+h2{color:var(--accent)}
+input,button{
+  width:100%;padding:10px;margin:8px 0;
+  border-radius:8px;border:none;font-size:16px
+}
+input{background:#02061720;color:var(--text)}
+button{
+  background:var(--accent);color:white;
+  cursor:pointer;transition:.3s
+}
+button:hover{transform:scale(1.05)}
+.range{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+#steps{
+  background:#02061730;padding:15px;
+  border-radius:10px;white-space:pre-wrap
+}
+#graph{height:450px}
+.ops{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:15px;margin-top:10px
+}
+.op-card{
+  background:linear-gradient(135deg,#02061740,#02061770);
+  padding:20px;border-radius:15px;
+  text-align:center;cursor:pointer;
+  border:2px solid transparent
+}
+.op-card.active{
+  border-color:var(--accent);
+  box-shadow:0 0 20px var(--accent)
+}
+#login{
+  position:fixed;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#020617,#020617dd);
+  z-index:999
+}
+.login-box{
+  background:var(--card);padding:30px;
+  border-radius:20px;width:320px;
+  text-align:center
+}
+.error{color:#f87171}
+@media(max-width:768px){
+  .range,.ops{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-box">
+    <h2>🔐 Login</h2>
+    <input id="user" placeholder="Username">
+    <input id="pass" type="password" placeholder="Password">
+    <button onclick="loginUser()">Login</button>
+    <p id="loginError" class="error"></p>
+  </div>
+</div>
+
+<header>
+  <div class="header-actions">
+    <button onclick="toggleTheme()">🌙 / ☀️</button>
+    <button onclick="logout()">🚪 Logout</button>
+  </div>
+  <h1>📐 Mathematics Problem Solver</h1>
+  <p>Differentiation • Integration • Graph Plotter</p>
+</header>
+
+<div class="container" id="app" style="display:none">
+
+<div class="card">
+<h2>1️⃣ Enter Polynomial</h2>
+<input id="equation" placeholder="Example: 3x^3 - 2x^2 + 5x - 7">
+
+<h2>2️⃣ Choose Operation</h2>
+<div class="ops">
+  <div class="op-card" onclick="selectOp('diff',this)">📉<br>Differentiation</div>
+  <div class="op-card" onclick="selectOp('int',this)">∫<br>Integration</div>
+  <div class="op-card" onclick="selectOp('graph',this)">📊<br>Graph</div>
+</div>
+
+<h3>Axis Range</h3>
+<div class="range">
+  <input id="xmin" value="-10">
+  <input id="xmax" value="10">
+  <input id="ymin" value="-10">
+  <input id="ymax" value="10">
+</div>
+
+<button onclick="solve()">Solve</button>
+<p id="error" class="error"></p>
+</div>
+
+<div class="card">
+<h2>3️⃣ Step-by-Step Solution</h2>
+<div id="steps">Select an operation...</div>
+</div>
+
+<div class="card">
+<h2>4️⃣ Graph Visualization</h2>
+<div id="graph"></div>
+</div>
+
+</div>
+
+<script>
+/* LOGIN */
+const USERS={
+  "RITIK":"125B1E167",
+  "HARSHIT":"125B1E178",
+  "JUNAID":"125B1E172"
+};
+function loginUser(){
+  let u=user.value.trim().toUpperCase();
+  let p=pass.value.trim();
+  if(USERS[u]===p){
+    login.style.display="none";
+    app.style.display="grid";
+  }else loginError.textContent="❌ Invalid credentials";
+}
+function logout(){location.reload()}
+function toggleTheme(){document.body.classList.toggle("light")}
+
+/* MATH */
+let selectedOperation=null;
+function selectOp(op,el){
+  selectedOperation=op;
+  document.querySelectorAll(".op-card").forEach(c=>c.classList.remove("active"));
+  el.classList.add("active");
+}
+
+/* ✅ ONLY FIX IS HERE */
+function parsePolynomial(expr){
+  expr=expr.replace(/\s+/g,"").replace(/-/g,"+-");
+  return expr.split("+").filter(Boolean).map(t=>{
+    if(t.includes("x")){
+      let [c,p]=t.split("x");
+      return{
+        coef:c===""||c==="+"?1:c==="-"?-1:+c,
+        pow:p ? Number(p.slice(1)) : 1   // ✅ FIX
+      }
+    }
+    return{coef:+t,pow:0}
+  });
+}
+
+function differentiate(t){
+  return t.filter(x=>x.pow).map(x=>({coef:x.coef*x.pow,pow:x.pow-1}))
+}
+function integrate(t){
+  return t.map(x=>({coef:x.coef/(x.pow+1),pow:x.pow+1}))
+}
+function termsToString(terms){
+  return terms.map(t=>{
+    let s=t.coef>=0?" + ":" - ";
+    let c=Math.abs(t.coef).toFixed(2);
+    if(t.pow===0) return s+c;
+    if(t.pow===1) return s+(c==1?"":c)+"x";
+    return s+(c==1?"":c)+"x^"+t.pow;
+  }).join("").replace(/^ \+ /,"");
+}
+function plotGraph(t){
+  let x=[],y=[];
+  let xminv=+xmin.value,xmaxv=+xmax.value;
+  let step=(xmaxv-xminv)/600;
+  for(let i=xminv;i<=xmaxv;i+=step){
+    let v=0;
+    t.forEach(e=>v+=e.coef*Math.pow(i,e.pow));
+    x.push(i);y.push(v);
+  }
+  Plotly.newPlot("graph",[{
+    x,y,mode:"lines",line:{width:3}
+  }],{margin:{t:30}}, {scrollZoom:true});
+}
+
+function solve(){
+  if(!selectedOperation){
+    error.textContent="Please select an operation";
+    return;
+  }
+  error.textContent="";
+  let original=parsePolynomial(equation.value);
+  let result,stepsText="";
+
+  if(selectedOperation==="diff"){
+    result=differentiate(original);
+    stepsText=
+      "Given Function:\n"+termsToString(original)+
+      "\n\nRule:\nd/dx(axⁿ)=a·n xⁿ⁻¹\n\nResult:\n"+
+      termsToString(result);
+  }
+  else if(selectedOperation==="int"){
+    result=integrate(original);
+    stepsText=
+      "Given Function:\n"+termsToString(original)+
+      "\n\nRule:\n∫axⁿdx=a/(n+1)xⁿ⁺¹\n\nResult:\n"+
+      termsToString(result)+" + C";
+  }
+  else{
+    result=original;
+    stepsText="Graph of:\n"+termsToString(original);
+  }
+  steps.textContent=stepsText;
+  plotGraph(result);
+}
+</script>
+
+</body>
+</html>
